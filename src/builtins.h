@@ -4,13 +4,14 @@
 
 #pragma once
 
-#include "executor.h"
+
 #include "shell.h"
 #include "path.h"
+#include "executor.h"
 
 typedef struct CommandLocation {
     Path* path;
     char* built_in;
-};
+} CommandLocation;
 
-CommandLocation which(Shell*, enum CommandType type, char* path);
+CommandLocation* which(Shell*, CommandType type, char* path);

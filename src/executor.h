@@ -4,9 +4,9 @@
 
 
 #pragma once
-#include <stdio.h>
+#include "shell.h"
 
-enum CommandType { ABSOLUTE, RELATIVE, GLOBAL, INVALID };
+typedef enum CommandType { ABSOLUTE, RELATIVE, GLOBAL, INVALID } CommandType;
 
 typedef struct Executor {
   char* path;
@@ -14,5 +14,8 @@ typedef struct Executor {
   enum CommandType command_type;
 } Executor;
 
-Executor* new_executor(enum CommandType command_type, char* path, char* args);
-void print_executor(Executor* executor);
+Executor* new_executor(CommandType, char* path, char* args);
+int run_executor(Executor*, Shell*);
+
+void print_executor(Executor*);
+char* stringify_command_type(CommandType);

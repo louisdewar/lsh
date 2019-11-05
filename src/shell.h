@@ -11,3 +11,5 @@ typedef struct Shell {
     char* PATH;
     Path* working_directory;
 } Shell;
+
+Shell* new_shell(char* PATH);

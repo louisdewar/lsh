@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 
 Path* new_path_from_cwd() {
     int capacity = 2048;
@@ -25,10 +26,10 @@ Path* new_path_from_cwd() {
     return path;
 }
 
-Path* path_append_raw(Path* path, char* str) {
+void path_append_raw(Path* path, char* str) {
     int str_len = strlen(str);
 
-    // Combined length plus the separator (/) and null char
+    // Combined length plus the separator (/) and null char (doesn't matter if we don't actually use the /, all we are doing is reserving capacity)
     int combined_len = str_len + path->len + 2;
 
     if (path->cap < combined_len) {
@@ -36,9 +37,9 @@ Path* path_append_raw(Path* path, char* str) {
 
         strcpy(new_str, path->str);
 
-        if (path->len > 0) {
-            // Put the seperator between the strings if there was already a string in the path
-            strcat(new_str, '/');
+        if (path->len > 0 && path->str[path->len - 1] != '/') {
+            // Put the separator between the strings if there was already a string in the path and don't allow //
+            strcat(new_str, "/");
         }
 
         strcat(new_str, str);
@@ -57,12 +58,12 @@ Path* new_empty_path() {
 
     path->cap = 1;
     path->len = 0;
-    path->str = '\0';
+    path->str = "";
 
     return path;
 }
 
-Path* path_delete_last_segment(Path* path) {
+void path_delete_last_segment(Path* path) {
     char* last_segment = strrchr(path->str, '/');
 
     // Entire string is last segment
@@ -82,7 +83,7 @@ Path* new_path_from_str(char* str) {
 
     // Path is absolute so ensure this char gets added to start of string
     if (*str == '/') {
-        path_append_raw(path, '/');
+        path_append_raw(path, "/");
         str++;
     }
 
@@ -90,15 +91,17 @@ Path* new_path_from_str(char* str) {
         char* segment = strtok(str, "/");
 
         while(segment != '\0') {
-            if (segment == '..') {
+            if (strcmp(segment, "..") == 0) {
                 path_delete_last_segment(path);
-            } else if (segment != '.') {
+            } else if (strcmp(segment, ".") != 0) {
                 path_append_raw(path, segment);
             }
 
-            segment = strtok(str, "/");
+            segment = strtok(NULL, "/");
         }
     }
+
+    return path;
 }
 
 Path* new_path_from_join(Path* path, char* str) {
@@ -108,6 +111,22 @@ Path* new_path_from_join(Path* path, char* str) {
     path_append_raw(new_path, str);
 
     return new_path;
+}
+
+Path* new_path_from_str_slice(char* start, int len) {
+     char* sub_str = (char*) malloc(sizeof(char) * (len + 1));
+     strncpy(sub_str, start, len);
+     sub_str[len] = '\0';
+
+     Path* path = new_path_from_str(sub_str);
+
+     free(sub_str);
+
+     return path;
+}
+
+void path_join(Path* path, char* str) {
+    path_append_raw(path, str);
 }
 
 void free_path(Path* path) {
