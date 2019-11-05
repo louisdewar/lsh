@@ -15,3 +15,5 @@ typedef struct CommandLocation {
 } CommandLocation;
 
 CommandLocation* which(Shell*, CommandType type, char* path);
+
+int execute_built_in(Shell*, Executor*);

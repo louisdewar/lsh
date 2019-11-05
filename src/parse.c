@@ -29,7 +29,7 @@ CommandType get_command_type(char *word) {
         if (word[0] == '/') {
             return ABSOLUTE;
         } else if (word[0] == '.') {
-            printf("Invalid path '%s'\n", word);
+            printf("Invalid command '%s'\n", word);
             return INVALID;
         } else {
             return GLOBAL;

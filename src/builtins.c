@@ -6,10 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "builtins.h"
 
-const char* built_ins[] = { "which", "cd", NULL };
+const char* built_ins[] = { "which", "cd", "pwd", NULL };
 
 CommandLocation* cmd_loc_from_path(Path* path) {
     CommandLocation* loc = malloc(sizeof(CommandLocation));
@@ -70,7 +72,6 @@ CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
                     len = path_end - path_start;
                 }
 
-
                 Path* path = new_path_from_str_slice(path_start, len);
                 path_join(path, path_str);
 
@@ -84,4 +85,31 @@ CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
             return NULL;
         }
     }
+}
+
+int execute_built_in(Shell* shell, Executor* executor) {
+    char* cmd = executor->command;
+    char* args = executor->args;
+
+    if(strcmp(cmd, "cd") == 0) {
+        Path* new_path = new_path_from_join(shell->working_directory, args);
+
+        struct stat meta;
+
+        if (stat(new_path->str, &meta) == 0 && meta.st_mode & S_IFDIR) {
+            free_path(shell->working_directory);
+            shell->working_directory = new_path;
+            return 0;
+        } else {
+            printf("cd: Either you don't have the required permissions or the directory `%s` doesn't exist\n", args);
+            return 1;
+        }
+    } else if(strcmp(cmd, "pwd") == 0) {
+        printf("%s", shell->working_directory->str);
+        return 0;
+    } else {
+        printf("Unrecognised built in `%s`, this should not have occurred\n", cmd);
+        exit(1);
+    }
+
 }

@@ -53,12 +53,21 @@ void path_append_raw(Path* path, char* str) {
     }
 }
 
-Path* new_empty_path() {
+Path* new_empty_path(int capacity) {
+    if (capacity < 0) {
+        capacity = 0;
+    }
+
+    // Add 1 for NULL char
+    capacity += 1;
+
     Path* path = malloc(sizeof(Path));
 
-    path->cap = 1;
+    path->cap = capacity;
     path->len = 0;
-    path->str = "";
+    path->str = malloc(sizeof(char) * capacity);
+    // Set the first char to be null pointer
+    *path->str = '\0';
 
     return path;
 }
@@ -69,7 +78,7 @@ void path_delete_last_segment(Path* path) {
     // Entire string is last segment
     if (last_segment == NULL) {
         // Preserve allocation for current string just set first char to NULL (don't need to change capacity)
-        path->str[0] = '\0';
+        *path->str = '\0';
         path->len = 0;
     } else {
         // Reduce string length without changing capacity
@@ -79,7 +88,7 @@ void path_delete_last_segment(Path* path) {
 }
 
 Path* new_path_from_str(char* str) {
-    Path* path = new_empty_path();
+    Path* path = new_empty_path(strlen(str));
 
     // Path is absolute so ensure this char gets added to start of string
     if (*str == '/') {
@@ -90,7 +99,7 @@ Path* new_path_from_str(char* str) {
     if (strlen(str) > 0) {
         char* segment = strtok(str, "/");
 
-        while(segment != '\0') {
+        while(segment != NULL) {
             if (strcmp(segment, "..") == 0) {
                 path_delete_last_segment(path);
             } else if (strcmp(segment, ".") != 0) {
@@ -104,11 +113,46 @@ Path* new_path_from_str(char* str) {
     return path;
 }
 
+void sanitise_append(Path* path, char* str) {
+    int len = strlen(str);
+    if (len > 0) {
+        char* segment_start = str;
+        char* segment_end = strchr(segment_start, '/');
+
+        while (segment_end != NULL) {
+            int segment_len = segment_end - segment_start;
+            char *segment = (char *) calloc(sizeof(char), 1 + segment_len);
+            strncpy(segment, segment_start, segment_end - segment_start);
+            segment[segment_len] = '\0';
+
+            if (strcmp(segment, "..") == 0) {
+                path_delete_last_segment(path);
+            } else if (strcmp(segment, ".") != 0) {
+                path_append_raw(path, segment);
+            }
+
+            segment_start = segment_end + 1;
+            segment_end = strchr(segment_start, '/');
+        }
+
+        if(strcmp(segment_start, "..") == 0) {
+            path_delete_last_segment(path);
+        } else if(strcmp(segment_start, ".") != 0) {
+            // Append the last segment
+            path_append_raw(path, segment_start);
+        }
+    }
+}
+
+void path_join(Path* path, char* str) {
+    sanitise_append(path, str);
+}
+
 Path* new_path_from_join(Path* path, char* str) {
-    Path* new_path = new_empty_path();
+    Path* new_path = new_empty_path(1);
 
     path_append_raw(new_path, path->str);
-    path_append_raw(new_path, str);
+    sanitise_append(new_path, str);
 
     return new_path;
 }
@@ -125,8 +169,21 @@ Path* new_path_from_str_slice(char* start, int len) {
      return path;
 }
 
-void path_join(Path* path, char* str) {
-    path_append_raw(path, str);
+void insert_home(Path* path, char* home) {
+    // If the first char is tilde
+    if(*path->str == '~') {
+        char* old_str = calloc(sizeof(char), path->len + 1);
+        strcpy(old_str, path->str);
+
+        int cap = strlen(home) + path->len + 2;
+        path->str = calloc(sizeof(char), cap);
+        path->cap = cap;
+        strcpy(path->str, home);
+
+        path_join(path, old_str);
+
+        free(old_str);
+    }
 }
 
 void free_path(Path* path) {
