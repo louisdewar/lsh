@@ -13,6 +13,7 @@ typedef struct Shell {
     Path* working_directory;
     int last_exit_status;
     bool running;
+    char* home;
 } Shell;
 
-Shell* new_shell(char* PATH);
+Shell* new_shell(char *PATH, char *home);

@@ -8,6 +8,6 @@
 #include "executor.h"
 #include "path.h"
 
-Executor* parse_line(char* line, Path* working_directory);
+Executor* parse_line(char*);
 
 CommandType get_command_type(char*);

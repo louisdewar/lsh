@@ -6,7 +6,7 @@
 #pragma once
 #include "shell.h"
 
-typedef enum CommandType { ABSOLUTE, RELATIVE, GLOBAL, INVALID } CommandType;
+typedef enum CommandType { ABSOLUTE, RELATIVE, GLOBAL } CommandType;
 
 typedef struct Executor {
   char* command;

@@ -33,13 +33,6 @@ void path_append_raw(Path* path, char* str) {
         return;
     }
 
-    // This path is absolute so str should replace the current path
-    if (str[0] == '/') {
-        path->str[0] = '\0';
-        path->len = 0;
-    }
-
-
     // Remove ending slash if there are chars before it (allow '/')
     if (str_len > 1 && str[str_len - 1] == '/') {
         str[str_len - 1] = '\0';
@@ -63,8 +56,8 @@ void path_append_raw(Path* path, char* str) {
     }
 
     // Put the separator between the strings if there was already a string in the path and don't allow //
-    // (done by default since path can't end in / and if str starts with / then str is treated as absolute and path->str has already been set to ""
-    if (path->len > 0) {
+    // (path can't end in / unless they are length 1 and we check if str starts with /)
+    if (path->len > 1 && str[0] != '/') {
         strcat(path->str, "/");
     }
 
@@ -205,13 +198,32 @@ char* get_path_last_segment(Path* path) {
     }
 }
 
-void insert_home(Path* path, char* home) {
+PathType get_path_type(char* str) {
+    if (str[0] == '\0') {
+        return P_RELATIVE;
+    }
+
+    if (str[0] == '~' || str[0] == '/') {
+        return P_ABSOLUTE;
+    }
+
+    return P_RELATIVE;
+}
+
+void path_insert_home(Path* path, char* home) {
+    // TODO: In future there will be environment variables and this will already be handled
+
     // If the first char is tilde
     if(*path->str == '~') {
+        // Skip first char
+        path->str++;
+        path->len--;
+
         char* old_str = calloc(sizeof(char), path->len + 1);
         strcpy(old_str, path->str);
 
-        int cap = strlen(home) + path->len + 2;
+        // Blindly replace ~ with HOME
+        int cap = strlen(home) + path->len + 1;
         path->str = calloc(sizeof(char), cap);
         path->cap = cap;
         strcpy(path->str, home);

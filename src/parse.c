@@ -11,37 +11,9 @@
 #include "str_vec.h"
 
 CommandType get_command_type(char *word) {
-    // This is guaranteed to be at least one
-    int len = strlen(word);
+    PathType p_type = get_path_type(word);
 
-    // it is only possible for this to be GLOBAL or RELATIVE
-    if (len == 1) {
-        if (word[0] == '/') {
-            printf("'/' is not a valid command\n");
-            return INVALID;
-        } else {
-            return GLOBAL;
-        }
-    }
-
-
-    // This can not be RELATIVE - need './{path}'
-    if (len == 2) {
-        if (word[0] == '/') {
-            return ABSOLUTE;
-        } else if (word[0] == '.') {
-            printf("Invalid command '%s'\n", word);
-            return INVALID;
-        } else {
-            return GLOBAL;
-        }
-    }
-
-    if (word[0] == '.' && word[1] == '/') {
-        return RELATIVE;
-    }
-
-    if (word[0] == '/') {
+    if (p_type == P_ABSOLUTE) {
         return ABSOLUTE;
     }
 
@@ -53,13 +25,13 @@ CommandType get_command_type(char *word) {
     return GLOBAL;
 }
 
-void parse_arguments(StringVector* vec, char* args) {
-    char* start = strtok(args, " ");
+void parse_arguments(StringVector *vec, char *args) {
+    char *start = strtok(args, " ");
 
-    while(start != NULL) {
-       string_vector_append(vec, start);
+    while (start != NULL) {
+        string_vector_append(vec, start);
 
-       start = strtok(NULL, " ");
+        start = strtok(NULL, " ");
     }
 
 
@@ -74,7 +46,7 @@ void parse_arguments(StringVector* vec, char* args) {
 
 }
 
-Executor *parse_line(char *line, Path *working_directory) {
+Executor *parse_line(char *line) {
     // Remove leading whitespace
     while (*line == ' ') {
         line++;
@@ -101,13 +73,10 @@ Executor *parse_line(char *line, Path *working_directory) {
     // Get the type of path
     enum CommandType type = get_command_type(first_word);
 
-    if (type == INVALID) {
-        return NULL;
-    } else {
-        StringVector vec = new_string_vector(1);
-        string_vector_append(&vec, first_word);
-        parse_arguments(&vec, args);
-        return new_executor(type, first_word, vec.ptr);
-    }
+    StringVector vec = new_string_vector(1);
+    string_vector_append(&vec, first_word);
+    parse_arguments(&vec, args);
+
+    return new_executor(type, first_word, vec.ptr);
 
 }

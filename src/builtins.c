@@ -51,10 +51,12 @@ CommandLocation *cmd_loc_from_built_in(char *built_in) {
 
 CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
     switch (type) {
-        case INVALID:
-            return NULL;
-        case ABSOLUTE:
-            return cmd_loc_from_path_checked(new_path_from_str(path_str));
+        case ABSOLUTE: {
+            Path *path = new_path_from_str(path_str);
+            path_insert_home(path, shell->home);
+            return cmd_loc_from_path_checked(path);
+        }
+
         case RELATIVE: {
             Path *real_path = new_path_from_join(shell->working_directory, path_str);
 
@@ -115,7 +117,14 @@ int execute_built_in(Shell *shell, Executor *executor) {
         char *dir = args[1];
 
         if (dir != NULL) {
-            Path *new_path = new_path_from_join(shell->working_directory, dir);
+            Path *new_path = NULL;
+            CommandType path_type = get_command_type(dir);
+            if(path_type == ABSOLUTE) {
+                new_path = new_path_from_str(dir);
+            } else {
+                new_path = new_path_from_join(shell->working_directory, dir);
+            }
+            path_insert_home(new_path, shell->home);
 
             struct stat meta;
 
@@ -126,7 +135,7 @@ int execute_built_in(Shell *shell, Executor *executor) {
                 return 0;
             } else {
                 printf("cd: Either you don't have the required permissions or the directory `%s` doesn't exist\n",
-                       dir);
+                       new_path->str);
                 return 1;
             }
         } else {
