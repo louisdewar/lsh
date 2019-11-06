@@ -15,6 +15,8 @@ Path* new_path_from_str(char*);
 Path* new_path_from_join(Path*, char*);
 Path* new_path_from_str_slice(char*, int);
 
+char* get_path_last_segment(Path*);
+
 void path_join(Path*, char*);
 void insert_home(Path*, char*);
 

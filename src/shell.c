@@ -15,6 +15,7 @@ Shell* new_shell(char* PATH) {
     strcpy(shell->PATH, PATH);
 
     shell->working_directory = new_path_from_cwd();
+    shell->running = true;
 
     return shell;
 }

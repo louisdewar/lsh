@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdio.h>
 
 Path* new_path_from_cwd() {
     int capacity = 2048;
@@ -29,28 +28,48 @@ Path* new_path_from_cwd() {
 void path_append_raw(Path* path, char* str) {
     int str_len = strlen(str);
 
+    // Don't do anything (exit early helps with some assumptions further down)
+    if(str_len == 0) {
+        return;
+    }
+
+    // This path is absolute so str should replace the current path
+    if (str[0] == '/') {
+        path->str[0] = '\0';
+        path->len = 0;
+    }
+
+
+    // Remove ending slash if there are chars before it (allow '/')
+    if (str_len > 1 && str[str_len - 1] == '/') {
+        str[str_len - 1] = '\0';
+        str_len -= 1;
+    }
+
     // Combined length plus the separator (/) and null char (doesn't matter if we don't actually use the /, all we are doing is reserving capacity)
     int combined_len = str_len + path->len + 2;
 
     if (path->cap < combined_len) {
-        char* new_str = malloc(sizeof(char) * combined_len);
+        char *new_str = malloc(sizeof(char) * combined_len);
 
         strcpy(new_str, path->str);
 
-        if (path->len > 0 && path->str[path->len - 1] != '/') {
-            // Put the separator between the strings if there was already a string in the path and don't allow //
-            strcat(new_str, "/");
-        }
-
-        strcat(new_str, str);
+        free(path->str);
 
         path->str = new_str;
+
         path->cap = combined_len;
         path->len = strlen(path->str);
-    } else {
-        strcat(path->str, str);
-        path->len = strlen(path->str);
     }
+
+    // Put the separator between the strings if there was already a string in the path and don't allow //
+    // (done by default since path can't end in / and if str starts with / then str is treated as absolute and path->str has already been set to ""
+    if (path->len > 0) {
+        strcat(path->str, "/");
+    }
+
+    strcat(path->str, str);
+    path->len = strlen(path->str);
 }
 
 Path* new_empty_path(int capacity) {
@@ -167,6 +186,23 @@ Path* new_path_from_str_slice(char* start, int len) {
      free(sub_str);
 
      return path;
+}
+
+char* get_path_last_segment(Path* path) {
+    char* last_segment = strrchr(path->str, '/');
+
+    // No / therefore the whole path is the last segment
+    if (last_segment == NULL) {
+        return path->str;
+    } else {
+        // The string is just /
+        if (path->len == 1) {
+            return path->str;
+        } else {
+            // Return the last segment excluding the /
+            return ++last_segment;
+        }
+    }
 }
 
 void insert_home(Path* path, char* home) {

@@ -6,10 +6,12 @@
 
 
 #include "path.h"
+#include <stdbool.h>
 
 typedef struct Shell {
     char* PATH;
     Path* working_directory;
+    bool running;
 } Shell;
 
 Shell* new_shell(char* PATH);

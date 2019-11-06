@@ -4,9 +4,9 @@
 
 
 #include <stdio.h>
-#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+//#include <signal.h>
 
 #include "parse.h"
 #include "executor.h"
@@ -18,8 +18,8 @@ int main(void) {
   Shell* shell = new_shell(getenv("PATH"));
 
   // Main loop
-  while(true) {
-    printf("lsh>> ");
+  while(shell->running) {
+    printf("(lsh) %s>> ", get_path_last_segment(shell->working_directory));
     // Max line chars is 4096
     char line[4096];
 
@@ -38,10 +38,8 @@ int main(void) {
       continue;
     }
 
-    print_executor(executor);
+//    print_executor(executor);
     run_executor(executor, shell);
-
-    printf("\n");
   }
 
   return 0;

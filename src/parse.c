@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "executor.h"
+#include "str_vec.h"
 
 CommandType get_command_type(char *word) {
     // This is guaranteed to be at least one
@@ -52,6 +53,27 @@ CommandType get_command_type(char *word) {
     return GLOBAL;
 }
 
+void parse_arguments(StringVector* vec, char* args) {
+    char* start = strtok(args, " ");
+
+    while(start != NULL) {
+       string_vector_append(vec, start);
+
+       start = strtok(NULL, " ");
+    }
+
+
+//    printf("Arg vec[%i]: [", vec.len);
+//    if (vec.len > 0) {
+//        printf("\"%s\"", vec.ptr[0]);
+//    }
+//    for(int i = 1; i < vec.len; i++) {
+//        printf(", \"%s\"", vec.ptr[i]);
+//    }
+//    printf("]\n");
+
+}
+
 Executor *parse_line(char *line, Path *working_directory) {
     // Remove leading whitespace
     while (*line == ' ') {
@@ -82,6 +104,10 @@ Executor *parse_line(char *line, Path *working_directory) {
     if (type == INVALID) {
         return NULL;
     } else {
-        return new_executor(type, first_word, args);
+        StringVector vec = new_string_vector(1);
+        string_vector_append(&vec, first_word);
+        parse_arguments(&vec, args);
+        return new_executor(type, first_word, vec.ptr);
     }
+
 }
