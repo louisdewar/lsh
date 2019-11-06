@@ -11,6 +11,7 @@
 typedef struct Shell {
     char* PATH;
     Path* working_directory;
+    int last_exit_status;
     bool running;
 } Shell;
 

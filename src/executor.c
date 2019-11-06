@@ -10,8 +10,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-Executor* new_executor(enum CommandType command_type, char* path, char** args) {
-    Executor* executor = malloc(sizeof(Executor));
+Executor *new_executor(enum CommandType command_type, char *path, char **args) {
+    Executor *executor = malloc(sizeof(Executor));
 
     // Allocate the values on the heap
     executor->command = malloc(sizeof(char) * (strlen(path) + 1));
@@ -30,13 +30,13 @@ void fd_print(int fd, int count, ...) {
 
     va_start(arg_list, count);
 
-    for(int i = 0; i < count; i++) {
-        char* str = va_arg(arg_list, char*);
+    for (int i = 0; i < count; i++) {
+        char *str = va_arg(arg_list, char*);
         write(fd, str, strlen(str));
     }
 }
 
-char* stringify_command_type(enum CommandType type) {
+char *stringify_command_type(enum CommandType type) {
     switch (type) {
         case ABSOLUTE:
             return "ABSOLUTE";
@@ -49,7 +49,7 @@ char* stringify_command_type(enum CommandType type) {
     }
 }
 
-int exec_wait_status(char* args[], int in_fd, int out_fd, int log_fd) {
+int exec_wait_status(char *args[], int in_fd, int out_fd, int log_fd) {
     int pid = exec_process(args, in_fd, out_fd, log_fd);
 
     int status = 0;
@@ -63,18 +63,18 @@ int exec_wait_status(char* args[], int in_fd, int out_fd, int log_fd) {
     }
 }
 
-pid_t exec_process(char* args[], int in_fd, int out_fd, int log_fd) {
+pid_t exec_process(char *args[], int in_fd, int out_fd, int log_fd) {
     int pid = fork();
 
     if (pid == 0) {
-        if(in_fd == -1) {
+        if (in_fd == -1) {
             close(0);
-        } else{
+        } else {
             // Replace stdin with in_fd
             dup2(in_fd, 0);
         }
 
-        if(out_fd == -1) {
+        if (out_fd == -1) {
             close(1);
         } else {
             // Replace stdout with out_fd
@@ -98,7 +98,7 @@ pid_t exec_process(char* args[], int in_fd, int out_fd, int log_fd) {
 
 // Pipe process a to b
 // TODO: change to return PID
-int plumb(char* args_a[], char* args_b[], int fd_out, int log_fd) {
+int plumb(char *args_a[], char *args_b[], int fd_out, int log_fd) {
     int pipefd[2];
     pipe(pipefd);
 
@@ -144,16 +144,16 @@ int plumb(char* args_a[], char* args_b[], int fd_out, int log_fd) {
     }
 }
 
-int run_executor(Executor* executor, Shell* shell) {
-    CommandLocation* cmd_loc = which(shell, executor->command_type, executor->command);
+int run_executor(Executor *executor, Shell *shell) {
+    CommandLocation *cmd_loc = which(shell, executor->command_type, executor->command);
 
     if (cmd_loc == NULL) {
         printf("Unknown command `%s`\n", executor->command);
         return 1;
     } else if (cmd_loc->path != NULL) {
         int status = exec_wait_status(executor->args, -1, 1, 2);
-        printf("Exit status: %i\n", status);
-        return 0;
+//        printf("Exit status: %i\n", status);
+        return status;
     } else if (cmd_loc->built_in != NULL) {
         return execute_built_in(shell, executor);
     } else {

@@ -16,6 +16,7 @@ Shell* new_shell(char* PATH) {
 
     shell->working_directory = new_path_from_cwd();
     shell->running = true;
+    shell->last_exit_status = 0;
 
     return shell;
 }

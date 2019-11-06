@@ -12,35 +12,44 @@
 #include "executor.h"
 #include "shell.h"
 
+#define RED "\x1b[31m"
+#define GREEN "\x1b[32m"
+#define RESET_COLOUR "\x1b[0m"
+
 int main(void) {
-  printf("lsh v0.1\n");
+    printf("lsh v0.1\n");
 
-  Shell* shell = new_shell(getenv("PATH"));
+    Shell *shell = new_shell(getenv("PATH"));
 
-  // Main loop
-  while(shell->running) {
-    printf("(lsh) %s>> ", get_path_last_segment(shell->working_directory));
-    // Max line chars is 4096
-    char line[4096];
+    // Main loop
+    while (shell->running) {
+        if (shell->last_exit_status == 0) {
+            printf(GREEN"(lsh)"RESET_COLOUR" %s>> ", get_path_last_segment(shell->working_directory));
+        } else {
+            printf(RED"(lsh)"RESET_COLOUR" %s>> ", get_path_last_segment(shell->working_directory));
+        }
 
-    if(fgets(line, 4096, stdin) == NULL) {
-      perror("Couldn't read line");
-      break;
-    }
+        // Max line chars is 4096
+        char line[4096];
 
-    // Replace the newline with a null char (terminate string early)
-    line[strcspn(line, "\n")] = '\0';
+        if (fgets(line, 4096, stdin) == NULL) {
+            perror("Couldn't read line");
+            break;
+        }
 
-    Executor* executor = parse_line(line, shell->working_directory);
+        // Replace the newline with a null char (terminate string early)
+        line[strcspn(line, "\n")] = '\0';
 
-    if (executor == NULL) {
-      printf("NULL executor\n");
-      continue;
-    }
+        Executor *executor = parse_line(line, shell->working_directory);
+
+        if (executor == NULL) {
+            shell->last_exit_status = -1;
+            continue;
+        }
 
 //    print_executor(executor);
-    run_executor(executor, shell);
-  }
+        shell->last_exit_status = run_executor(executor, shell);
+    }
 
-  return 0;
+    return 0;
 }

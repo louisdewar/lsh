@@ -12,10 +12,10 @@
 #include "builtins.h"
 #include "parse.h"
 
-const char* built_ins[] = { "which", "cd", "pwd", "exit", NULL };
+const char *built_ins[] = {"which", "cd", "pwd", "exit", NULL};
 
-CommandLocation* cmd_loc_from_path(Path* path) {
-    CommandLocation* loc = malloc(sizeof(CommandLocation));
+CommandLocation *cmd_loc_from_path(Path *path) {
+    CommandLocation *loc = malloc(sizeof(CommandLocation));
 
     loc->path = path;
     loc->built_in = NULL;
@@ -24,11 +24,11 @@ CommandLocation* cmd_loc_from_path(Path* path) {
 }
 
 // This also checks the path exists and is executable, return NULL if it isn't
-CommandLocation* cmd_loc_from_path_checked(Path* path) {
+CommandLocation *cmd_loc_from_path_checked(Path *path) {
     struct stat statbuf;
 
     if (stat(path->str, &statbuf) == 0 && (statbuf.st_mode & S_IXUSR) && S_ISREG(statbuf.st_mode)) {
-        CommandLocation* loc = cmd_loc_from_path(path);
+        CommandLocation *loc = cmd_loc_from_path(path);
 
         return loc;
     }
@@ -40,8 +40,8 @@ CommandLocation* cmd_loc_from_path_checked(Path* path) {
     return NULL;
 }
 
-CommandLocation* cmd_loc_from_built_in(char* built_in) {
-    CommandLocation* loc = malloc(sizeof(CommandLocation));
+CommandLocation *cmd_loc_from_built_in(char *built_in) {
+    CommandLocation *loc = malloc(sizeof(CommandLocation));
 
     loc->built_in = built_in;
     loc->path = NULL;
@@ -49,7 +49,7 @@ CommandLocation* cmd_loc_from_built_in(char* built_in) {
     return loc;
 }
 
-CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
+CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
     switch (type) {
         case INVALID:
             return NULL;
@@ -58,7 +58,7 @@ CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
         case RELATIVE: {
             Path *real_path = new_path_from_join(shell->working_directory, path_str);
 
-            CommandLocation* loc = cmd_loc_from_path_checked(real_path);
+            CommandLocation *loc = cmd_loc_from_path_checked(real_path);
 
             if (loc == NULL) {
                 return loc;
@@ -69,17 +69,17 @@ CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
         }
         case GLOBAL: {
             // Check to see if it's a built in command
-            for(int i = 0; built_ins[i] != NULL; i++) {
+            for (int i = 0; built_ins[i] != NULL; i++) {
                 if (strcmp(built_ins[i], path_str) == 0) {
                     return cmd_loc_from_built_in(path_str);
                 }
             }
 
-            char* path_start = shell->PATH;
+            char *path_start = shell->PATH;
 
             // Search the path
-            while(*path_start != '\0') {
-                char* path_end = strchr(path_start, ':');
+            while (*path_start != '\0') {
+                char *path_end = strchr(path_start, ':');
 
                 int len = 0;
                 if (path_end == NULL) {
@@ -88,10 +88,10 @@ CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
                     len = path_end - path_start;
                 }
 
-                Path* path = new_path_from_str_slice(path_start, len);
+                Path *path = new_path_from_str_slice(path_start, len);
                 path_join(path, path_str);
 
-                CommandLocation* loc = cmd_loc_from_path_checked(path);
+                CommandLocation *loc = cmd_loc_from_path_checked(path);
 
                 if (loc != NULL) {
                     return loc;
@@ -107,15 +107,15 @@ CommandLocation* which(Shell* shell, CommandType type, char* path_str) {
     }
 }
 
-int execute_built_in(Shell* shell, Executor* executor) {
-    char* cmd = executor->command;
-    char** args = executor->args;
+int execute_built_in(Shell *shell, Executor *executor) {
+    char *cmd = executor->command;
+    char **args = executor->args;
 
-    if(strcmp(cmd, "cd") == 0) {
-        char* dir = args[1];
+    if (strcmp(cmd, "cd") == 0) {
+        char *dir = args[1];
 
         if (dir != NULL) {
-            Path* new_path = new_path_from_join(shell->working_directory, dir);
+            Path *new_path = new_path_from_join(shell->working_directory, dir);
 
             struct stat meta;
 
@@ -133,17 +133,17 @@ int execute_built_in(Shell* shell, Executor* executor) {
             printf("cd: path not specified\n");
             return 1;
         };
-    } else if(strcmp(cmd, "pwd") == 0) {
+    } else if (strcmp(cmd, "pwd") == 0) {
         printf("%s\n", shell->working_directory->str);
         return 0;
-    } else if(strcmp(cmd, "which") == 0) {
-        char* path = args[1];
+    } else if (strcmp(cmd, "which") == 0) {
+        char *path = args[1];
         if (path != NULL) {
             CommandType type = get_command_type(args[0]);
 
-            CommandLocation* loc = which(shell, type, path);
+            CommandLocation *loc = which(shell, type, path);
 
-            if(loc == NULL) {
+            if (loc == NULL) {
                 printf("which: can't find command `%s`\n", path);
                 return 1;
             } else if (loc->built_in != NULL) {
@@ -159,7 +159,7 @@ int execute_built_in(Shell* shell, Executor* executor) {
         }
 
         return -1;
-    } else if(strcmp(cmd, "exit") == 0) {
+    } else if (strcmp(cmd, "exit") == 0) {
         shell->running = false;
         return 0;
     } else {
