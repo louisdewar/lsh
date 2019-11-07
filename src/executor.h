@@ -14,8 +14,22 @@ typedef struct Executor {
   enum CommandType command_type;
 } Executor;
 
-Executor* new_executor(CommandType, char*, char**);
-int run_executor(Executor*, Shell*);
+typedef enum ExecutionConnection {
+    NO_CONNECTION,
+    CONNECTION_PIPE,
+    CONNECTION_AFTER,
+} ExecutionConnection;
 
-//void print_executor(Executor*);
-//char* stringify_command_type(CommandType);
+typedef struct ExecutionPlan {
+    Executor* executor;
+    struct ExecutionPlan* next;
+    ExecutionConnection connection;
+} ExecutionPlan;
+
+Executor* new_executor(CommandType, char**);
+int run_execution_plan(ExecutionPlan*, Shell*, int, int);
+
+void free_executor(Executor*);
+void free_execution_plan(ExecutionPlan*);
+
+void print_execution_plan(ExecutionPlan*);

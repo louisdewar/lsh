@@ -41,15 +41,18 @@ int main(void) {
         // Replace the newline with a null char (terminate string early)
         line[strcspn(line, "\n")] = '\0';
 
-        Executor *executor = parse_line(line);
+        ExecutionPlan *execution_plan = parse_line(line);
 
-        if (executor == NULL) {
+        print_execution_plan(execution_plan);
+        printf("\n");
+
+        if (execution_plan == NULL) {
             shell->last_exit_status = -1;
             continue;
         }
 
-//    print_executor(executor);
-        shell->last_exit_status = run_executor(executor, shell);
+        shell->last_exit_status = run_execution_plan(execution_plan, shell, 1, 2);
+        free_execution_plan(execution_plan);
     }
 
     return 0;

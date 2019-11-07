@@ -28,8 +28,8 @@ StringVector new_string_vector(int capacity) {
     return vec;
 }
 
-void string_vector_append(StringVector* vec, char* str) {
-    // If old vec + new string is over capacity allocate more (use >= because we have to also include a NULL ptr)
+void string_vector_append_n(StringVector* vec, char* str, int n) {
+    // If old vec + new pointer is over capacity allocate more (use >= because we have to also include a NULL ptr)
     if (vec->len + 1 >= vec->capacity) {
         char** old_ptr = vec->ptr;
 
@@ -39,11 +39,12 @@ void string_vector_append(StringVector* vec, char* str) {
         memcpy(vec->ptr, old_ptr, sizeof(char*) * vec->len);
     }
 
-    char* str_copy = calloc(sizeof(char), strlen(str) + 1);
-    strcpy(str_copy, str);
+    char* str_copy = calloc(sizeof(char), n + 1);
+    strncpy(str_copy, str, n);
+    str_copy[n] = '\0';
 
     vec->ptr[vec->len] = str_copy;
-    vec->len++;
 
+    vec->len++;
     vec->ptr[vec->len] = NULL;
 }

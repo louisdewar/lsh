@@ -12,4 +12,4 @@ typedef struct StringVector {
 
 StringVector new_string_vector(int capacity);
 
-void string_vector_append(StringVector*, char*);
+void string_vector_append_n(StringVector*, char*, int);
