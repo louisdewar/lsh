@@ -25,9 +25,9 @@ CommandLocation *cmd_loc_from_path(Path *path) {
 
 // This also checks the path exists and is executable, return NULL if it isn't
 CommandLocation *cmd_loc_from_path_checked(Path *path) {
-    struct stat statbuf;
+    struct stat stat_buf;
 
-    if (stat(path->str, &statbuf) == 0 && (statbuf.st_mode & S_IXUSR) && S_ISREG(statbuf.st_mode)) {
+    if (stat(path->str, &stat_buf) == 0 && (stat_buf.st_mode & S_IXUSR) && S_ISREG(stat_buf.st_mode)) {
         CommandLocation *loc = cmd_loc_from_path(path);
 
         return loc;
@@ -53,7 +53,7 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
     switch (type) {
         case ABSOLUTE: {
             Path *path = new_path_from_str(path_str);
-            path_insert_home(path, shell->home);
+            path_insert_home(path, shell_get_env_var(shell, "HOME", true));
             return cmd_loc_from_path_checked(path);
         }
 
@@ -77,7 +77,12 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
                 }
             }
 
-            char *path_start = shell->PATH;
+            // It's a set variable command (builtin)
+            if (strchr(path_str, '=') != NULL) {
+                return cmd_loc_from_built_in(path_str);
+            }
+
+            char *path_start = shell_get_env_var(shell, "PATH", true);
 
             // Search the path
             while (*path_start != '\0') {
@@ -106,12 +111,15 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
 
             return NULL;
         }
+        default: {
+            fprintf(stderr, "Invalid code path on which\n");
+            exit(1);
+        }
     }
 }
 
-int execute_built_in(Shell *shell, Executor *executor) {
-    char *cmd = executor->command;
-    char **args = executor->args;
+int execute_built_in(Shell *shell, char** args) {
+    char *cmd = args[0];
 
     if (strcmp(cmd, "cd") == 0) {
         char *dir = args[1];
@@ -124,7 +132,7 @@ int execute_built_in(Shell *shell, Executor *executor) {
             } else {
                 new_path = new_path_from_join(shell->working_directory, dir);
             }
-            path_insert_home(new_path, shell->home);
+            path_insert_home(new_path, shell_get_env_var(shell, "HOME", true));
 
             struct stat meta;
 
@@ -169,7 +177,13 @@ int execute_built_in(Shell *shell, Executor *executor) {
 
         return -1;
     } else if (strcmp(cmd, "exit") == 0) {
+        // TODO: parse status and exit with it
         shell->running = false;
+        return 0;
+    } else if (strchr(cmd, '=') != NULL) {
+        char* name_end = strchr(cmd, '=');
+
+        hashmap_insert_or_update(shell->env_vars, new_hashmap_entry_slice(cmd, name_end - cmd, name_end + 1, strlen(name_end + 1)));
         return 0;
     } else {
         printf("Unrecognised built in `%s`, this should not have occurred\n", cmd);

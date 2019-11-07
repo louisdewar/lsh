@@ -3,20 +3,23 @@
 //
 
 #include "executor.h"
-#include "builtins.h"
+
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
-Executor *new_executor(enum CommandType command_type, char **args) {
+#include "builtins.h"
+#include "growable_string.h"
+#include "parse.h"
+
+Executor *new_executor(char **args) {
     Executor *executor = malloc(sizeof(Executor));
 
-    executor->command = args[0];
     executor->args = args;
-
-    executor->command_type = command_type;
 
     return executor;
 }
@@ -44,16 +47,16 @@ void free_executor(Executor *executor) {
     free(executor);
 }
 
-void free_execution_plan(ExecutionPlan* plan) {
+void free_execution_plan(ExecutionPlan *plan) {
     do {
-        if(plan->executor != NULL) {
+        if (plan->executor != NULL) {
             free_executor(plan->executor);
         }
 
-        ExecutionPlan* old_plan = plan;
+        ExecutionPlan *old_plan = plan;
         plan = plan->next;
         free(old_plan);
-    } while(plan != NULL);
+    } while (plan != NULL);
 }
 
 // Helper function for printing to file descriptors
@@ -119,7 +122,10 @@ void print_execution_plan(ExecutionPlan *plan) {
         case CONNECTION_AFTER:
             printf("after");
             break;
+        case NO_CONNECTION:
+            break;
         default:
+            printf("__unhandled__");
             break;
     }
 
@@ -130,14 +136,142 @@ void print_execution_plan(ExecutionPlan *plan) {
     }
 }
 
+char *sanitise_argument(char *arg, Shell *shell) {
+    String s = new_string(NULL);
+
+    char quote_char = '\0';
+    bool escape_next = false;
+
+    while (*arg != '\0') {
+        // Handle \ char (if escaped then treat as normal char - will get appended at the end)
+        if(*arg == '\\' && !escape_next) {
+            // Escape the next char
+            escape_next = true;
+            // Skip to next char
+            arg++;
+            continue;
+        }
+
+
+        // Expand a variable if we are not in `'` and we're not escaped
+        if(*arg == '$' && !escape_next && quote_char != '\'') {
+            // This is a regular variable name
+            if (isalnum(*(arg + 1))) {
+                // Start at the first char of variable name
+                char *start = ++arg;
+
+                // Move arg to the first char after the variable name
+                while (isalnum(*++arg));
+
+                int name_len = arg - start;
+                char *var_name = calloc(sizeof(char), name_len + 1);
+                strncpy(var_name, start, name_len);
+                var_name[name_len] = '\0';
+
+                char *value = shell_get_env_var(shell, var_name, false);
+
+                if (value == NULL) {
+                    // Don't append so variable acts as empty string
+                    continue;
+                }
+
+                push_str(&s, value);
+
+                continue;
+            }
+
+            // Last exit status
+            if (*(arg + 1) == '?') {
+                char buf[255];
+                sprintf(buf, "%d", shell->last_exit_status);
+                push_str(&s, buf);
+
+                arg += 2;
+                continue;
+            }
+
+            // Otherwise this is just a normal solitary $
+        }
+
+        // If there is a `'` and we're not escaped and we're not in "
+        if(*arg == '\'' && !escape_next && quote_char != '"') {
+            // This single quote close the previous one
+            if (quote_char == '\'') {
+                quote_char = '\0';
+            } else {
+                // This is the start of a new quote
+                quote_char = '\'';
+            }
+
+            arg++;
+            continue;
+        }
+
+        // If there is a `"` and we're not escaped and we're not in '
+        if (*arg == '"' && !escape_next && quote_char != '\'') {
+            // This double quote close the previous one
+            if (quote_char == '\"') {
+                quote_char = '\0';
+            } else {
+                // This is the start of a new quote
+                quote_char = '\"';
+            }
+
+            arg++;
+            continue;
+        }
+
+        // Add the current char and then move on to the next
+        push_char(&s, *arg);
+        arg++;
+
+        // Escape wasn't used (TODO: decide on what should happen - e.g. control chars)
+        escape_next = false;
+    }
+
+    // Unescaped quote
+    if(quote_char != '\0') {
+        fprintf(stderr, "Syntax error unescaped `%c` in `%s`\n", quote_char, arg);
+        return NULL;
+    }
+
+    return s.str;
+}
+
+/// Expands shell variables and removes quotes (context aware) - returns true if syntactically correct and false otherwise
+bool sanitise_arguments(char **args, Shell *shell) {
+    for(int i = 0; args[i] != NULL; i++) {
+        char* arg = sanitise_argument(args[i], shell);
+        free(args[i]);
+
+        if (arg == NULL) {
+            return false;
+        }
+
+        args[i] = arg;
+    }
+
+    return true;
+}
+
 pid_t run_executor(Executor *executor, Shell *shell, int fd_in, int fd_out, int fd_close, int fd_log) {
-    CommandLocation *cmd_loc = which(shell, executor->command_type, executor->command);
+    char** args = executor->args;
+
+    // Removes outer ", ' and inserts values into unescaped shell variables
+    if(!sanitise_arguments(args, shell)) {
+        fprintf(stderr, "Internal shell error: the previous error should have been caught at parse stage\n");
+        exit(1);
+    }
+
+    CommandType command_type = get_command_type(args[0]);
+
+    CommandLocation *cmd_loc = which(shell, command_type, args[0]);
 
     int built_in_status = 0;
 
     // We have to run built ins on this thread
     if (cmd_loc != NULL && cmd_loc->built_in != NULL) {
-        built_in_status = execute_built_in(shell, executor);
+        built_in_status = execute_built_in(shell, executor->args);
     }
 
     int pid = fork();
@@ -157,9 +291,16 @@ pid_t run_executor(Executor *executor, Shell *shell, int fd_in, int fd_out, int 
             dup2(fd_in, 0);
         }
 
+        // Sleep for a very short amount of time to ensure that parent is ready to start listening for this PID
+        struct timespec t;
+        t.tv_sec = 0;
+        // 1 ms
+        t.tv_nsec = 1 * 1000000;
+        nanosleep(&t, NULL);
+
         if (cmd_loc == NULL) {
-            fd_print(fd_log, 3, "Unknown command `", executor->command, "`\n");
-            exit(-1);
+            fd_print(fd_log, 3, "Unknown command `", executor->args[0], "`\n");
+            exit(1);
         }
 
         if (cmd_loc->path != NULL) {

@@ -6,14 +6,16 @@
 
 
 #include "path.h"
+#include "hashmap.h"
 #include <stdbool.h>
 
 typedef struct Shell {
-    char* PATH;
     Path* working_directory;
     int last_exit_status;
     bool running;
-    char* home;
+    HashMap* env_vars;
 } Shell;
 
-Shell* new_shell(char *PATH, char *home);
+Shell* new_shell(char**);
+
+char* shell_get_env_var(Shell*, char*, bool);

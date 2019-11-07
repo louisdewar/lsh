@@ -9,9 +9,7 @@
 typedef enum CommandType { ABSOLUTE, RELATIVE, GLOBAL } CommandType;
 
 typedef struct Executor {
-  char* command;
   char** args;
-  enum CommandType command_type;
 } Executor;
 
 typedef enum ExecutionConnection {
@@ -26,7 +24,7 @@ typedef struct ExecutionPlan {
     ExecutionConnection connection;
 } ExecutionPlan;
 
-Executor* new_executor(CommandType, char**);
+Executor* new_executor(char**);
 int run_execution_plan(ExecutionPlan*, Shell*, int, int);
 
 void free_executor(Executor*);

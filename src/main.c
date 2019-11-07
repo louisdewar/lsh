@@ -5,8 +5,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-//#include <signal.h>
 
 #include "parse.h"
 #include "executor.h"
@@ -17,10 +15,10 @@
 #define BLUE "\x1b[34m"
 #define RESET_COLOUR "\x1b[0m"
 
-int main(void) {
+int main(int argc, char **argv, char **envp) {
     printf("lsh v0.1\n");
 
-    Shell *shell = new_shell(getenv("PATH"), getenv("HOME"));
+    Shell *shell = new_shell(envp);
 
     // Main loop
     while (shell->running) {
@@ -43,13 +41,13 @@ int main(void) {
 
         ExecutionPlan *execution_plan = parse_line(line);
 
-        print_execution_plan(execution_plan);
-        printf("\n");
-
         if (execution_plan == NULL) {
             shell->last_exit_status = -1;
             continue;
         }
+
+        print_execution_plan(execution_plan);
+        printf("\n");
 
         shell->last_exit_status = run_execution_plan(execution_plan, shell, 1, 2);
         free_execution_plan(execution_plan);

@@ -29,51 +29,72 @@ CommandType get_command_type(char *word) {
 // Parse all the arguments including the actual command (returns error message or NULL pointer for no error)
 // It sets the char pointer to the end of the command (either '\0' or the control char e.g. |)
 char* parse_arguments(StringVector *vec, char **args) {
-    char *start = *args;
-    char *end = *args;
+    char* c = *args;
 
-    while (*start != '\0') {
-        // Remove leading whitespace
-        while (*start == ' ') {
-            start++;
-        }
+    // Remove leading whitespace
+    while(*c == ' ') {
+        c++;
+    }
 
-        end = start;
+    char* start = c;
 
-        // Find end of this argument
-        while(*end != '\0' && *end != ' ' && *end != '|' && *end != ';') {
-            if (*end == '"' || *end == '\'') {
-                char quote = *start;
-
-                do {
-                    end++;
-
-                    // Reached EOF with unescaped quote
-                    if (*end == '\0') {
-                        return "Reached EOF with unmatched quote";
-                    }
-                } while(*end != quote || *(end - 1) == '\\');
+    // The purpose of this isn't to help editing the string and preform the escaping, it's just to decide whether the next char should be escaped
+    bool escape_next = false;
+    while (*c != '\0') {
+        if (*c == '\\') {
+            if (escape_next) {
+                escape_next = false;
+            } else {
+                escape_next = true;
             }
 
-            end++;
+            c++;
+            continue;
         }
 
-        int len = end - start;
+        if(*c == '\'' || *c == '"') {
+            char quote = *c;
+            c++;
 
-        if(len > 0) {
-            // Vec should include from start not including the end char
-            string_vector_append_n(vec, start, len);
-            start = end;
-        } else {
-            // We must have reached a control char
+            while(*c != quote) {
+                if (*c == '\0') {
+                    return "Reached EOF with unmatched quote";
+                }
+
+                c++;
+            }
+        }
+
+        // Check for control chars
+        if(!escape_next && (*c == '|' || *c == ';')) {
             break;
         }
+
+        if (!escape_next && (*c == ' ')) {
+            string_vector_append_n(vec, start, c - start);
+
+            // Remove extra whitespace
+            while(*c == ' ') {
+                c++;
+            }
+
+            start = c;
+            continue;
+        }
+
+        // Increment the char pointer and go around again
+        c++;
+    }
+
+    // Either we reached a control char or NULL, if there is a string from the start up to (not including) the current char we want to append it
+    if(start != c) {
+        string_vector_append_n(vec, start, c - start);
     }
 
     if (vec->len == 0) {
         return "Empty string";
     } else {
-        *args = end;
+        *args = c;
         return NULL;
     }
 }
@@ -92,11 +113,7 @@ ExecutionPlan *parse_line(char *line) {
             return NULL;
         }
 
-        // Get the type of command path
-        enum CommandType type = get_command_type(vec.ptr[0]);
-
-
-        Executor* executor = new_executor(type, vec.ptr);
+        Executor* executor = new_executor(vec.ptr);
         ExecutionPlan* execution_plan = new_execution_plan(executor);
 
         switch (control_char) {
