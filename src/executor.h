@@ -12,10 +12,14 @@ typedef struct Executor {
   char** args;
 } Executor;
 
+// TODO: Consider how to support both on success and on failure from 1 command, perhaps vector of execution plans, each with a unique connection?
 typedef enum ExecutionConnection {
     NO_CONNECTION,
     CONNECTION_PIPE,
     CONNECTION_AFTER,
+    CONNECTION_ON_SUCCESS,
+    CONNECTION_ON_FAILURE,
+    CONNECTION_FORK,
 } ExecutionConnection;
 
 typedef struct ExecutionPlan {

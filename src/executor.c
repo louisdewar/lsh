@@ -124,6 +124,15 @@ void print_execution_plan(ExecutionPlan *plan) {
             break;
         case NO_CONNECTION:
             break;
+        case CONNECTION_FORK:
+            printf("fork");
+            break;
+        case CONNECTION_ON_SUCCESS:
+            printf("on success");
+            break;
+        case CONNECTION_ON_FAILURE:
+            printf("on failure");
+            break;
         default:
             printf("__unhandled__");
             break;
@@ -339,33 +348,64 @@ int wait_for_pid_exit(int pid, int fd_log) {
 
 int run_execution_plan(ExecutionPlan *plan, Shell *shell, int fd_out, int fd_log) {
     int fd_in = -1;
+    bool should_skip_next = false;
 
     //  TODO: int vec of pids to wait for
 
     while (plan->next != NULL) {
-        switch (plan->connection) {
-            case CONNECTION_PIPE: {
-                int pipe_fd[2];
-                pipe(pipe_fd);
+        if (!should_skip_next) {
+            // The connection to the *next* command
+            switch (plan->connection) {
+                case CONNECTION_PIPE: {
+                    int pipe_fd[2];
+                    pipe(pipe_fd);
 
-                run_executor(plan->executor, shell, fd_in, pipe_fd[1], pipe_fd[0], fd_log);
-                // Close our write end of pipe
-                close(pipe_fd[1]);
+                    run_executor(plan->executor, shell, fd_in, pipe_fd[1], pipe_fd[0], fd_log);
+                    // Close our write end of pipe
+                    close(pipe_fd[1]);
 
-                // Next fd_in is from the pipe
-                fd_in = pipe_fd[0];
-                break;
+                    // Next fd_in is from the pipe
+                    fd_in = pipe_fd[0];
+                    break;
+                }
+                case CONNECTION_AFTER: {
+                    int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
+                    // Wait until this process has finished before moving on to next
+                    shell->last_exit_status = wait_for_pid_exit(pid, fd_log);
+                    fd_in = -1;
+                    break;
+                }
+                case CONNECTION_ON_SUCCESS: {
+                    int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
+                    shell->last_exit_status = wait_for_pid_exit(pid, fd_log);
+
+                    if (shell->last_exit_status != 0) {
+                        should_skip_next = true;
+                    }
+                    break;
+                }
+                case CONNECTION_FORK: {
+                    int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
+                    char buf[255];
+                    sprintf(buf, "[forked %i]", pid);
+                    fd_print(fd_log, 1, buf);
+                    break;
+                }
+                case CONNECTION_ON_FAILURE: {
+                    int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
+                    shell->last_exit_status = wait_for_pid_exit(pid, fd_log);
+
+                    if (shell->last_exit_status -= 0) {
+                        should_skip_next = true;
+                    }
+                    break;
+                }
+                case NO_CONNECTION:
+                    fd_print(fd_log, 1, "Execution plan had non NULL next but the connection was NO_CONNECTION\n");
+                    break;
             }
-            case CONNECTION_AFTER: {
-                int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
-                // Wait until this process has finished before moving on to next
-                wait_for_pid_exit(pid, fd_log);
-                fd_in = -1;
-                break;
-            }
-            case NO_CONNECTION:
-                fd_print(fd_log, 1, "Execution plan had non NULL next but the connection was NO_CONNECTION\n");
-                break;
+        } else {
+            should_skip_next = false;
         }
 
         // Go to next execution plan

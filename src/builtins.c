@@ -62,7 +62,7 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
 
             CommandLocation *loc = cmd_loc_from_path_checked(real_path);
 
-            if (loc == NULL) {
+            if (loc != NULL) {
                 return loc;
             } else {
                 free_path(real_path);

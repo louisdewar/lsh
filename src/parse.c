@@ -66,7 +66,7 @@ char* parse_arguments(StringVector *vec, char **args) {
         }
 
         // Check for control chars
-        if(!escape_next && (*c == '|' || *c == ';')) {
+        if(!escape_next && (*c == '|' || *c == ';' || *c == '&')) {
             break;
         }
 
@@ -102,7 +102,7 @@ char* parse_arguments(StringVector *vec, char **args) {
 ExecutionPlan *parse_line(char *line) {
     ExecutionPlan *root_execution_plan = NULL;
     ExecutionPlan *prev_execution_plan = NULL;
-    char control_char = '\0';
+    char *control_char = "\0";
 
     while(*line != '\0') {
         StringVector vec = new_string_vector(1);
@@ -116,31 +116,51 @@ ExecutionPlan *parse_line(char *line) {
         Executor* executor = new_executor(vec.ptr);
         ExecutionPlan* execution_plan = new_execution_plan(executor);
 
-        switch (control_char) {
+        // Match the control char linking this command to the *previous* one
+        switch (*control_char) {
             case '\0':
                 root_execution_plan = execution_plan;
-                break;
-            case '|':
-                prev_execution_plan->next = execution_plan;
-                prev_execution_plan->connection = CONNECTION_PIPE;
                 break;
             case ';':
                 prev_execution_plan->next = execution_plan;
                 prev_execution_plan->connection = CONNECTION_AFTER;
                 break;
+            case '|':
+                prev_execution_plan->next = execution_plan;
+                if (*(control_char + 1) == '|') {
+                    prev_execution_plan->connection = CONNECTION_ON_FAILURE;
+                } else {
+                    prev_execution_plan->connection = CONNECTION_PIPE;
+                }
+                break;
+            case '&':
+                prev_execution_plan->next = execution_plan;
+                if (*(control_char + 1) == '&') {
+                    prev_execution_plan->connection = CONNECTION_ON_SUCCESS;
+                } else {
+                    // TODO: Fix fork syntax so that it works even as the last char of the formula
+                    prev_execution_plan->connection = CONNECTION_FORK;
+                }
+                break;
             default:
-                printf("Unhandled control char '%c'\n", control_char);
+                printf("Unhandled control char '%c'\n", *control_char);
                 return NULL;
         }
 
-        control_char = *line;
+        // Store the pointer to the location of the char in the line
+        control_char = line;
 
         // End of line
-        if(control_char == '\0') {
+        if(*control_char == '\0') {
             break;
         }
 
         line++;
+
+        // We should skip the next char because it is also a control char
+        if (*line == '|' || *line == '&') {
+            line++;
+        }
 
         prev_execution_plan = execution_plan;
     }
