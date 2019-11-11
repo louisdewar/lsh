@@ -5,11 +5,9 @@
 
 #pragma once
 
-#include "executor.h"
+#include "execution_plan.h"
 #include "path.h"
 
 ExecutionPlan* parse_line(char*);
-
-ExecutionPlan *new_execution_plan(Executor* executor);
 
 CommandType get_command_type(char*);

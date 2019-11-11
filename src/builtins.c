@@ -12,6 +12,7 @@
 #include "builtins.h"
 #include "parse.h"
 
+// Define the list of built ins so we know whether it's a built in or if we have to search the PATH
 const char *built_ins[] = {"which", "cd", "pwd", "exit", NULL};
 
 CommandLocation *cmd_loc_from_path(Path *path) {
@@ -34,7 +35,7 @@ CommandLocation *cmd_loc_from_path_checked(Path *path) {
     }
 
     if (errno == EACCES) {
-        printf("You do not have permission to access path: `%s`", path->str);
+        printf("You do not have permission to access path: `%s`\n", path->str);
     }
 
     return NULL;
@@ -61,6 +62,7 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
             Path *real_path = new_path_from_join(shell->working_directory, path_str);
 
             CommandLocation *loc = cmd_loc_from_path_checked(real_path);
+
 
             if (loc != NULL) {
                 return loc;
@@ -156,7 +158,8 @@ int execute_built_in(Shell *shell, char** args) {
     } else if (strcmp(cmd, "which") == 0) {
         char *path = args[1];
         if (path != NULL) {
-            CommandType type = get_command_type(args[0]);
+            // Get the command type of the first argument
+            CommandType type = get_command_type(args[1]);
 
             CommandLocation *loc = which(shell, type, path);
 
@@ -167,15 +170,15 @@ int execute_built_in(Shell *shell, char** args) {
                 printf("`%s` is a shell built in\n", loc->built_in);
                 return 0;
             } else if (loc->path != NULL) {
-                printf("%s", loc->path->str);
+                printf("%s\n", loc->path->str);
                 return 0;
             } else {
                 printf("Internal shell error\n");
-                return -1;
+                return 1;
             }
         }
 
-        return -1;
+        return 1;
     } else if (strcmp(cmd, "exit") == 0) {
         // TODO: parse status and exit with it
         shell->running = false;

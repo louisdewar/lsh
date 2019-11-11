@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "parse.h"
-#include "executor.h"
+#include "execution_plan.h"
 #include "shell.h"
 
 #define RED "\x1b[31m"
@@ -42,7 +42,7 @@ int main(int argc, char **argv, char **envp) {
         ExecutionPlan *execution_plan = parse_line(line);
 
         if (execution_plan == NULL) {
-            shell->last_exit_status = -1;
+            shell->last_exit_status = 1;
             continue;
         }
 
