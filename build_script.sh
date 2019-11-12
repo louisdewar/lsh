@@ -1,6 +1,8 @@
 #!/bin/bash
 
-mkdir build
-cd build
+BUILD_DIR=build
+
+mkdir $BUILD_DIR
+cd $BUILD_DIR
 cmake ..
 cmake --build .

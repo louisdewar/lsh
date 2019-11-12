@@ -7,6 +7,8 @@
 
 #include "path.h"
 #include "hashmap.h"
+#include "str_vec.h"
+#include "string.h"
 #include <stdbool.h>
 
 typedef struct Shell {
@@ -19,3 +21,4 @@ typedef struct Shell {
 Shell* new_shell(char**);
 
 char* shell_get_env_var(Shell*, char*, bool);
+StringVector get_all_env_vars(Shell* shell);

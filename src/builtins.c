@@ -11,9 +11,10 @@
 
 #include "builtins.h"
 #include "parse.h"
+#include "execution_plan.h"
 
 // Define the list of built ins so we know whether it's a built in or if we have to search the PATH
-const char *built_ins[] = {"which", "cd", "pwd", "exit", NULL};
+const char *built_ins[] = {"which", "cd", "pwd", "exit", "export", NULL};
 
 CommandLocation *cmd_loc_from_path(Path *path) {
     CommandLocation *loc = malloc(sizeof(CommandLocation));
@@ -79,11 +80,6 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
                 }
             }
 
-            // It's a set variable command (builtin)
-            if (strchr(path_str, '=') != NULL) {
-                return cmd_loc_from_built_in(path_str);
-            }
-
             char *path_start = shell_get_env_var(shell, "PATH", true);
 
             // Search the path
@@ -114,13 +110,30 @@ CommandLocation *which(Shell *shell, CommandType type, char *path_str) {
             return NULL;
         }
         default: {
-            fprintf(stderr, "Invalid code path on which\n");
+            fprintf(stderr, "which: invalid code path\n");
             exit(1);
         }
     }
 }
 
-int execute_built_in(Shell *shell, char** args) {
+// Expects str in the form name=value
+int export(Shell* shell, char* str, int fd_log) {
+    char* name_end = strchr(str, '=');
+
+    if (name_end == NULL) {
+        fd_print(fd_log, 1, "export: argument must be key=value\n");
+        return 1;
+    }
+
+    HashMapEntry* entry = new_hashmap_entry_slice(str, name_end - str, name_end + 1, strlen(name_end + 1));
+
+    setenv(entry->key, entry->value, 1);
+    hashmap_insert_or_update(shell->env_vars, entry);
+
+    return 0;
+}
+
+int execute_built_in(Shell *shell, char** args, int fd_log) {
     char *cmd = args[0];
 
     if (strcmp(cmd, "cd") == 0) {
@@ -144,12 +157,11 @@ int execute_built_in(Shell *shell, char** args) {
                 chdir(shell->working_directory->str);
                 return 0;
             } else {
-                printf("cd: Either you don't have the required permissions or the directory `%s` doesn't exist\n",
-                       new_path->str);
+                fd_print(fd_log, 3, "cd: Either you don't have the required permissions or the directory `", new_path->str, "` doesn't exist\n");
                 return 1;
             }
         } else {
-            printf("cd: path not specified\n");
+            fd_print(fd_log, 1, "cd: path not specified\n");
             return 1;
         };
     } else if (strcmp(cmd, "pwd") == 0) {
@@ -164,7 +176,7 @@ int execute_built_in(Shell *shell, char** args) {
             CommandLocation *loc = which(shell, type, path);
 
             if (loc == NULL) {
-                printf("which: can't find command `%s`\n", path);
+                fd_print(fd_log,3, "which: can't find command `", path, "`\n");
                 return 1;
             } else if (loc->built_in != NULL) {
                 printf("`%s` is a shell built in\n", loc->built_in);
@@ -173,7 +185,7 @@ int execute_built_in(Shell *shell, char** args) {
                 printf("%s\n", loc->path->str);
                 return 0;
             } else {
-                printf("Internal shell error\n");
+                fd_print(fd_log, 1, "Internal shell error\n");
                 return 1;
             }
         }
@@ -183,12 +195,49 @@ int execute_built_in(Shell *shell, char** args) {
         // TODO: parse status and exit with it
         shell->running = false;
         return 0;
-    } else if (strchr(cmd, '=') != NULL) {
-        char* name_end = strchr(cmd, '=');
+    } else if (strcmp(cmd, "export") == 0) {
+        if (args[1] != NULL) {
+            return export(shell, args[1], fd_log);
+        } else {
+            fd_print(fd_log, 1, "export: variable not specified\n");
+        }
+    }
+    /*else if (strchr(cmd, '=') != NULL) {
+        char** next_cmd = args+1;
 
-        hashmap_insert_or_update(shell->env_vars, new_hashmap_entry_slice(cmd, name_end - cmd, name_end + 1, strlen(name_end + 1)));
+        if (*next_cmd != NULL) {
+            char* name_end = strchr(cmd, '=');
+            HashMapEntry* entry = new_hashmap_entry_slice(cmd, name_end - cmd, name_end + 1, strlen(name_end + 1));
+
+            // This is just a pointer to the value which we're about to overwrite so we need to make a copy so we can set it back to the original value after
+            char* prev_value_ptr = hashmap_get_value(shell->env_vars, entry->key);
+            char *prev_value;
+            if (prev_value_ptr != NULL) {
+                prev_value = malloc(sizeof(char) * (strlen(prev_value_ptr) + 1));
+                strcpy(prev_value, prev_value_ptr);
+            } else {
+                // Set to empty string
+                prev_value = malloc(sizeof(char) * 1);
+                *prev_value = '\0';
+            }
+
+            setenv(entry->key, entry->value, 1);
+            hashmap_insert_or_update(shell->env_vars, entry);
+
+            // Run the rest of the commands after this as a command then reset env var after it finishes
+            // Fd in and out are just default since this process should have already been redirected properly
+            pid_t pid = run_executor(new_executor(next_cmd), shell, 0, 1, -1, fd_log);
+            int status = wait_for_pid_exit(pid, fd_log);
+
+            // Reset env var back to original value, because we already have a pointer to the new entry we can just reset it
+            free(entry->value);
+            entry->value = prev_value;
+            setenv(entry->key, entry->value,  1);
+            return status;
+        }
+
         return 0;
-    } else {
+    }*/ else {
         printf("Unrecognised built in `%s`, this should not have occurred\n", cmd);
         exit(1);
     }

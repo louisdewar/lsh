@@ -108,8 +108,12 @@ Path* new_path_from_str(char* str) {
         str++;
     }
 
+    // Create a copy to avoid messing with original string
+    char* str_cpy = malloc(sizeof(str) * (strlen(str) + 1));
+    strcpy(str_cpy, str);
+
     if (strlen(str) > 0) {
-        char* segment = strtok(str, "/");
+        char* segment = strtok(str_cpy, "/");
 
         while(segment != NULL) {
             if (strcmp(segment, "..") == 0) {

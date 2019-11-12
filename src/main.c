@@ -49,7 +49,7 @@ int main(int argc, char **argv, char **envp) {
         print_execution_plan(execution_plan);
         printf("\n");
 
-        shell->last_exit_status = run_execution_plan(execution_plan, shell, 1, 2);
+        run_execution_plan(execution_plan, shell, 1, 2);
         free_execution_plan(execution_plan);
     }
 

@@ -27,6 +27,8 @@ CommandType get_command_type(char *word) {
 }
 
 // Parse all the arguments including the actual command (returns error message or NULL pointer for no error)
+// This function only tries to work out where *spaces* are so it can build up a vector of arguments, it also works out where the command ends (control char)
+// Actually inserting env vars, replacing outer quote etc.. is done in executor.c when the command is run
 // It sets the char pointer to the end of the command (either '\0' or the control char e.g. |)
 char* parse_arguments(StringVector *vec, char **args) {
     char* c = *args;
@@ -38,7 +40,7 @@ char* parse_arguments(StringVector *vec, char **args) {
 
     char* start = c;
 
-    // The purpose of this isn't to help editing the string and preform the escaping, it's just to decide whether the next char should be escaped
+    // The purpose of this isn't to help editing the string and preform the escaping, it's just to decide whether the next char should be escaped (ignored)
     bool escape_next = false;
     while (*c != '\0') {
         if (*c == '\\') {
@@ -56,6 +58,7 @@ char* parse_arguments(StringVector *vec, char **args) {
             char quote = *c;
             c++;
 
+            // Skip to end of quote, since any space in here is part of string
             while(*c != quote) {
                 if (*c == '\0') {
                     return "Reached EOF with unmatched quote";
@@ -150,19 +153,27 @@ ExecutionPlan *parse_line(char *line) {
         // Store the pointer to the location of the char in the line
         control_char = line;
 
-        // End of line
-        if(*control_char == '\0') {
-            break;
-        }
-
-        line++;
-
-        // We should skip the next char because it is also a control char
-        if (*line == '|' || *line == '&') {
+        // Not end of line
+        if(*control_char != '\0') {
             line++;
+
+            // We should skip the next char because it is also a control char
+            if (*line == '|' || *line == '&') {
+                line++;
+            }
         }
 
         prev_execution_plan = execution_plan;
+    }
+
+    // Check to make sure there has been at least one plan (prev_execution_plan will be NULL if the command is empty)
+    if (prev_execution_plan != NULL) {
+        // Set the connections from the end to the shell:
+        if (*control_char == '&') {
+            prev_execution_plan->connection = CONNECTION_FORK;
+        } else {
+            prev_execution_plan->connection = CONNECTION_AFTER;
+        }
     }
 
     return root_execution_plan;

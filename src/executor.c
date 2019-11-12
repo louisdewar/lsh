@@ -29,7 +29,8 @@ ExecutionPlan *new_execution_plan(Executor *executor) {
 
     plan->executor = executor;
     plan->next = NULL;
-    plan->connection = NO_CONNECTION;
+    // This is the default
+    plan->connection = CONNECTION_AFTER;
 
     return plan;
 }
@@ -147,7 +148,7 @@ char *sanitise_argument(char *arg, Shell *shell) {
                 continue;
             }
 
-            // Otherwise this is just a normal solitary $
+            // Otherwise this is just a normal solitary $ which should be added as a char
         }
 
         // If there is a `'` and we're not escaped and we're not in "
@@ -178,11 +179,29 @@ char *sanitise_argument(char *arg, Shell *shell) {
             continue;
         }
 
+        // Expand new lines
+        if (*arg == 'n' && escape_next) {
+            push_char(&s, '\n');
+
+            arg++;
+            escape_next = false;
+            continue;
+        }
+
+        // Expand tabs
+        if (*arg == 't' && escape_next) {
+            push_char(&s, '\t');
+
+            arg++;
+            escape_next = false;
+            continue;
+        }
+
         // Add the current char and then move on to the next
         push_char(&s, *arg);
         arg++;
 
-        // Escape wasn't used (TODO: decide on what should happen - e.g. control chars)
+        // Escape wasn't used
         escape_next = false;
     }
 
@@ -226,9 +245,9 @@ pid_t run_executor(Executor *executor, Shell *shell, int fd_in, int fd_out, int 
 
     int built_in_status = 0;
 
-    // We have to run built ins on this thread
+    // We have to run built-ins on this thread and then in the fork we simply exit with this status
     if (cmd_loc != NULL && cmd_loc->built_in != NULL) {
-        built_in_status = execute_built_in(shell, executor->args);
+        built_in_status = execute_built_in(shell, executor->args, fd_log);
     }
 
     int pid = fork();
@@ -262,6 +281,7 @@ pid_t run_executor(Executor *executor, Shell *shell, int fd_in, int fd_out, int 
 
         if (cmd_loc->path != NULL) {
             execvp(executor->args[0], executor->args);
+
             fd_print(fd_log, 3, "Failed to exec process ", executor->args[0], "\n");
             exit(1);
         } else if (cmd_loc->built_in != NULL) {

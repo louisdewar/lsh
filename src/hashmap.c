@@ -116,7 +116,7 @@ void hashmap_insert_or_update(HashMap *map, HashMapEntry *new_entry) {
         double_table_size(map);
     }
 
-    // TODO: If we want we can add a check for element_count / occupancy (the closer this is to 0 the worse our collisions so we should change magic number and re-hash)
+    // TODO: If we want we can add a check for element_count / occupancy (the closer this is to 1 the fewer the collisions so we should change magic number and re-hash)
 }
 
 /// Prev_entry and new_entry cannot be NULL
