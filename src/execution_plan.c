@@ -49,6 +49,16 @@ void run_execution_plan(ExecutionPlan *plan, Shell *shell, int fd_out, int fd_lo
                     fd_in = -1;
                     break;
                 }
+                case CONNECTION_ON_FAILURE: {
+                    int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
+                    shell->last_exit_status = wait_for_pid_exit(pid, fd_log);
+
+                    // Skip the next if last exit was 0
+                    if (shell->last_exit_status == 0) {
+                        should_skip_next = true;
+                    }
+                    break;
+                }
                 case CONNECTION_ON_SUCCESS: {
                     int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
                     shell->last_exit_status = wait_for_pid_exit(pid, fd_log);
@@ -63,15 +73,6 @@ void run_execution_plan(ExecutionPlan *plan, Shell *shell, int fd_out, int fd_lo
                     char buf[255];
                     sprintf(buf, "[forked %i]\n", pid);
                     fd_print(fd_log, 1, buf);
-                    break;
-                }
-                case CONNECTION_ON_FAILURE: {
-                    int pid = run_executor(plan->executor, shell, fd_in, fd_out, -1, fd_log);
-                    shell->last_exit_status = wait_for_pid_exit(pid, fd_log);
-
-                    if (shell->last_exit_status != 0) {
-                        should_skip_next = true;
-                    }
                     break;
                 }
             }

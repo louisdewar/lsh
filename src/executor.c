@@ -114,12 +114,16 @@ char *sanitise_argument(char *arg, Shell *shell) {
         // Expand a variable if we are not in `'` and we're not escaped
         if(*arg == '$' && !escape_next && quote_char != '\'') {
             // This is a regular variable name
-            if (isalnum(*(arg + 1))) {
+            if (isalnum(*(arg + 1)) || *(arg + 1) == '_') {
                 // Start at the first char of variable name
                 char *start = ++arg;
 
+                arg++;
+
                 // Move arg to the first char after the variable name
-                while (isalnum(*++arg));
+                while (isalnum(*arg) || *arg == '_') {
+                    arg++;
+                }
 
                 int name_len = arg - start;
                 char *var_name = calloc(sizeof(char), name_len + 1);
@@ -149,6 +153,13 @@ char *sanitise_argument(char *arg, Shell *shell) {
             }
 
             // Otherwise this is just a normal solitary $ which should be added as a char
+        }
+
+        // Replace unescaped ~ with HOME
+        if (*arg == '~' && !escape_next && quote_char != '\'') {
+            push_str(&s, shell_get_env_var(shell, "HOME", true));
+            arg++;
+            continue;
         }
 
         // If there is a `'` and we're not escaped and we're not in "

@@ -200,44 +200,9 @@ int execute_built_in(Shell *shell, char** args, int fd_log) {
             return export(shell, args[1], fd_log);
         } else {
             fd_print(fd_log, 1, "export: variable not specified\n");
+            return 1;
         }
-    }
-    /*else if (strchr(cmd, '=') != NULL) {
-        char** next_cmd = args+1;
-
-        if (*next_cmd != NULL) {
-            char* name_end = strchr(cmd, '=');
-            HashMapEntry* entry = new_hashmap_entry_slice(cmd, name_end - cmd, name_end + 1, strlen(name_end + 1));
-
-            // This is just a pointer to the value which we're about to overwrite so we need to make a copy so we can set it back to the original value after
-            char* prev_value_ptr = hashmap_get_value(shell->env_vars, entry->key);
-            char *prev_value;
-            if (prev_value_ptr != NULL) {
-                prev_value = malloc(sizeof(char) * (strlen(prev_value_ptr) + 1));
-                strcpy(prev_value, prev_value_ptr);
-            } else {
-                // Set to empty string
-                prev_value = malloc(sizeof(char) * 1);
-                *prev_value = '\0';
-            }
-
-            setenv(entry->key, entry->value, 1);
-            hashmap_insert_or_update(shell->env_vars, entry);
-
-            // Run the rest of the commands after this as a command then reset env var after it finishes
-            // Fd in and out are just default since this process should have already been redirected properly
-            pid_t pid = run_executor(new_executor(next_cmd), shell, 0, 1, -1, fd_log);
-            int status = wait_for_pid_exit(pid, fd_log);
-
-            // Reset env var back to original value, because we already have a pointer to the new entry we can just reset it
-            free(entry->value);
-            entry->value = prev_value;
-            setenv(entry->key, entry->value,  1);
-            return status;
-        }
-
-        return 0;
-    }*/ else {
+    } else {
         printf("Unrecognised built in `%s`, this should not have occurred\n", cmd);
         exit(1);
     }

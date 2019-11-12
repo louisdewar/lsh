@@ -23,31 +23,6 @@ char *shell_get_env_var(Shell *shell, char *key, bool required) {
     return value;
 }
 
-// Ended up not being needed because execvpe isn't defined on my setup (just use setenv() whenever there's a change instead)
-StringVector get_all_env_vars(Shell* shell) {
-    HashMap* map = shell->env_vars;
-    StringVector vec = new_string_vector(map->element_count);
-
-    int max_unique_keys = pow_2(map->table_ptr_size);
-
-    for (int i = 0; i < max_unique_keys; i++) {
-        HashMapEntry* entry = map->table[i];
-        while (entry != NULL) {
-            String env_var = new_string(NULL);
-            // All these appends are allocating
-            push_str(&env_var, entry->key);
-            push_char(&env_var, '=');
-            push_str(&env_var, entry->value);
-            string_vector_append(&vec, env_var.str);
-
-            // Move to next entry in linked list
-            entry = entry->next;
-        }
-    }
-
-    return vec;
-}
-
 Shell *new_shell(char **envp) {
     Shell *shell = malloc(sizeof(Shell));
 
